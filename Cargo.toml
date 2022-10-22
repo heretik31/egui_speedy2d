@@ -1,0 +1,21 @@
+[package]
+name = "egui_speedy2d"
+authors = ["Hugo Bernabé <heretik31@protonmail.com>"]
+version = "0.1.0"
+edition = "2021"
+license = "BSD-3-Clause"
+description = "egui integration for speedy2d"
+repository = "https://github.com/heretik31/egui_speedy2d"
+keywords = ["gamedev", "gui", "egui", "speedy2d"]
+categories = ["game-development", "gui"]
+
+[workspace]
+members = ["examples/*"]
+
+[dev-dependencies]
+simple_logger = { version = "1.11", default-features = false, features = ["colors"] }
+
+[dependencies]
+speedy2d = "1.8"
+egui = "0.19"
+epaint = "0.19"
