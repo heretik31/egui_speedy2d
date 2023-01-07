@@ -182,9 +182,10 @@ impl<UserEventType> WindowWrapper<UserEventType> {
             } else {
                 let handle = gfx.create_image_from_raw_pixels(
                     ImageDataType::RGBA,
-                    match image_delta.filter {
-                        egui::TextureFilter::Nearest => ImageSmoothingMode::NearestNeighbor,
-                        egui::TextureFilter::Linear => ImageSmoothingMode::Linear,
+                    match image_delta.options {
+                        egui::TextureOptions::NEAREST => ImageSmoothingMode::NearestNeighbor,
+                        egui::TextureOptions::LINEAR => ImageSmoothingMode::Linear,
+                        _ => ImageSmoothingMode::Linear,
                     },
                     UVec2::new(image.size.0 as u32, image.size.1 as u32),
                     &image.pixels,
@@ -780,7 +781,7 @@ impl RgbaImage {
             pixels: match image {
                 egui::ImageData::Font(font_image) => {
                     let mut pixels = vec![];
-                    for color in font_image.srgba_pixels(1.) {
+                    for color in font_image.srgba_pixels(None) {
                         pixels.push(color.r());
                         pixels.push(color.g());
                         pixels.push(color.b());
