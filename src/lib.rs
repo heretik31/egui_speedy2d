@@ -593,6 +593,7 @@ impl<UserEventType> speedy2d::window::WindowHandler<UserEventType>
             self.raw_input.events.push(egui::Event::Key {
                 key,
                 pressed: true,
+                repeat: false,
                 modifiers: modifiers_from_speedy2d(&self.current_modifiers),
             });
         }
@@ -613,6 +614,7 @@ impl<UserEventType> speedy2d::window::WindowHandler<UserEventType>
             self.raw_input.events.push(egui::Event::Key {
                 key,
                 pressed: false,
+                repeat: false,
                 modifiers: modifiers_from_speedy2d(&self.current_modifiers),
             });
         }

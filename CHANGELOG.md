@@ -1,6 +1,10 @@
 # egui_speedy2d changelog
 All notable changes to the `egui_speedy2d` crate will be documented in this file.
 
+## 0.4.0
+### Changed 🔧
+* Update version egui 0.20 => 0.21
+
 ## 0.3.0
 ### Changed 🔧
 * Update version speedy2d 1.9 => 1.10
