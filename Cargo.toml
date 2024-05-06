@@ -13,9 +13,11 @@ categories = ["game-development", "gui"]
 members = ["examples/*"]
 
 [dev-dependencies]
-simple_logger = { version = "1.11", default-features = false, features = ["colors"] }
+simple_logger = { version = "5.0.0", default-features = false, features = [
+    "colors",
+] }
 
 [dependencies]
-speedy2d = "1.10"
-egui = "0.21"
-epaint = "0.21"
+speedy2d = "2.1.0"
+egui = "0.27.2"
+epaint = "0.27.2"
