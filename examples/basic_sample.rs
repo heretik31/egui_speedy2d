@@ -21,7 +21,7 @@ impl WindowHandler for MyWindowHandler {
         egui_ctx: &egui::Context,
     ) {
         graphics.clear_screen(Color::WHITE);
-        egui::Window::new("Hello").show(&egui_ctx, |ui| {
+        egui::Window::new("Hello").show(egui_ctx, |ui| {
             ui.label("World !");
         });
         helper.request_redraw();

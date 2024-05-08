@@ -92,7 +92,7 @@ impl<UserEventType> WindowWrapper<UserEventType> {
         self.free_textures();
 
         // get change
-        let clipped_primitives = self.egui_ctx.tessellate(full_output.shapes);
+        let clipped_primitives = self.egui_ctx.tessellate(full_output.shapes, full_output.pixels_per_point);
 
         // save textures to delete next frame
         self.to_free_textures = full_output
@@ -475,7 +475,7 @@ impl<UserEventType> speedy2d::window::WindowHandler<UserEventType>
         helper: &mut WindowHelper<UserEventType>,
         scale_factor: f64,
     ) {
-        self.raw_input.pixels_per_point = Some(scale_factor as f32);
+        self.egui_ctx.set_pixels_per_point(scale_factor as f32);
         self.handler
             .on_scale_factor_changed(helper, scale_factor, &self.egui_ctx);
     }
@@ -595,6 +595,7 @@ impl<UserEventType> speedy2d::window::WindowHandler<UserEventType>
                 pressed: true,
                 repeat: false,
                 modifiers: modifiers_from_speedy2d(&self.current_modifiers),
+                physical_key: None,
             });
         }
         self.handler
@@ -616,6 +617,7 @@ impl<UserEventType> speedy2d::window::WindowHandler<UserEventType>
                 pressed: false,
                 repeat: false,
                 modifiers: modifiers_from_speedy2d(&self.current_modifiers),
+                physical_key: None,
             });
         }
         self.handler
@@ -793,7 +795,7 @@ impl RgbaImage {
                 }
                 egui::ImageData::Color(color_image) => {
                     let mut pixels = vec![];
-                    for color in color_image.pixels {
+                    for color in &color_image.pixels {
                         pixels.push(color.r());
                         pixels.push(color.g());
                         pixels.push(color.b());
