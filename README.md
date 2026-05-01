@@ -3,14 +3,13 @@
 #### [crates.io](https://crates.io/crates/egui_speedy2d) | [docs](https://docs.rs/egui_speedy2d)
 
 egui_speedy2d is a library that helps integrate [egui](https://crates.io/crates/egui),
-an immediate mode GUI library, with [speeedy2d](https://crates.io/crates/speedy2d),
+an immediate mode GUI library, with [speedy2d](https://crates.io/crates/speedy2d),
 a 2D rendering framework.
 
 ## Warning
 
-The current version has only been tested on linux platform. It should work on windows platform.
-Not all features of egui has been tested. The work is still in progress. All merge-requests are
-welcome.
+This crate focuses on egui mesh rendering through speedy2d and does not support
+egui paint callbacks.
 
 ## Basic example
 
@@ -36,7 +35,7 @@ impl WindowHandler for MyWindowHandler {
         egui_ctx: &egui::Context,
     ) {
         graphics.clear_screen(Color::WHITE);
-        egui::Window::new("Hello").show(&egui_ctx, |ui| {
+        egui::Window::new("Hello").show(egui_ctx, |ui| {
             ui.label("World !");
         });
         helper.request_redraw();

@@ -18,6 +18,6 @@ simple_logger = { version = "5.0.0", default-features = false, features = [
 ] }
 
 [dependencies]
-speedy2d = "2.1.0"
-egui = "0.27.2"
-epaint = "0.27.2"
+speedy2d = "3.0.0"
+egui = "0.34.1"
+epaint = "0.34.1"

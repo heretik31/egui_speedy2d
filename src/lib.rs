@@ -13,6 +13,7 @@
 //! rendering.
 //!
 //! ```
+//! use speedy2d::{color::Color, window::WindowHelper, Graphics2D};
 //! struct MyWindowHandler;
 //!
 //! impl egui_speedy2d::WindowHandler for MyWindowHandler {
@@ -35,10 +36,23 @@
 //! [`speedy2d::windows::WindowHandler` trait](speedy2d::window::WindowHandler).
 //!
 //! ```no_run
-//! fn main() {
-//!     let window = speedy2d::Window::new_centered("Speedy2D: Hello World", (640, 240)).unwrap();
-//!     window.run_loop(egui_speedy2d::WindowWrapper::new(MyWindowHandler{}))
-//! }
+//! # use speedy2d::{color::Color, window::WindowHelper, Graphics2D};
+//! # struct MyWindowHandler;
+//! # impl egui_speedy2d::WindowHandler for MyWindowHandler {
+//! #     fn on_draw(
+//! #         &mut self,
+//! #         _helper: &mut WindowHelper,
+//! #         graphics: &mut Graphics2D,
+//! #         egui_ctx: &egui::Context,
+//! #     ) {
+//! #         graphics.clear_screen(Color::WHITE);
+//! #         egui::Window::new("Hello").show(egui_ctx, |ui| {
+//! #             ui.label("World !");
+//! #         });
+//! #     }
+//! # }
+//! let window = speedy2d::Window::new_centered("Speedy2D: Hello World", (640, 240)).unwrap();
+//! window.run_loop(egui_speedy2d::WindowWrapper::new(MyWindowHandler{}));
 //! ```
 
 pub use egui;
@@ -92,7 +106,9 @@ impl<UserEventType> WindowWrapper<UserEventType> {
         self.free_textures();
 
         // get change
-        let clipped_primitives = self.egui_ctx.tessellate(full_output.shapes, full_output.pixels_per_point);
+        let clipped_primitives = self
+            .egui_ctx
+            .tessellate(full_output.shapes, full_output.pixels_per_point);
 
         // save textures to delete next frame
         self.to_free_textures = full_output
@@ -115,52 +131,51 @@ impl<UserEventType> WindowWrapper<UserEventType> {
         } in clipped_primitives
         {
             gfx.set_clip(Some(rect_from_egui(clip_rect)));
-            if let epaint::Primitive::Mesh(epaint::Mesh {
-                indices,
-                vertices,
-                texture_id,
-            }) = primitive
-            {
-                let texture_id = match texture_id {
-                    egui::TextureId::Managed(id) => id,
-                    egui::TextureId::User(_) => continue,
-                };
+            match primitive {
+                epaint::Primitive::Mesh(epaint::Mesh {
+                    indices,
+                    vertices,
+                    texture_id,
+                }) => {
+                    let texture_id = match texture_id {
+                        egui::TextureId::Managed(id) => id,
+                        egui::TextureId::User(_) => continue,
+                    };
 
-                let handle = self.id_and_textures.get(&texture_id).unwrap().0.clone();
-                for indices in indices.chunks_exact(3) {
-                    let mut v = indices
-                        .iter()
-                        .map(|i| vertices[*i as usize])
-                        .collect::<Vec<_>>();
-                    let mut p = v.iter().map(|v| vec2_from_egui(v.pos)).collect::<Vec<_>>();
+                    let handle = self.id_and_textures.get(&texture_id).unwrap().0.clone();
+                    for indices in indices.chunks_exact(3) {
+                        let mut v = indices
+                            .iter()
+                            .map(|i| vertices[*i as usize])
+                            .collect::<Vec<_>>();
+                        let mut p = v.iter().map(|v| vec2_from_egui(v.pos)).collect::<Vec<_>>();
 
-                    // dots must be in clockwise order
-                    let cross_product = (p[1].x - p[0].x) * (p[2].y - p[0].y)
-                        - (p[1].y - p[0].y) * (p[2].x - p[0].x);
-                    if cross_product.is_sign_positive() {
-                        v.swap(1, 2);
-                        p.swap(1, 2);
+                        // dots must be in clockwise order
+                        let cross_product = (p[1].x - p[0].x) * (p[2].y - p[0].y)
+                            - (p[1].y - p[0].y) * (p[2].x - p[0].x);
+                        if cross_product.is_sign_positive() {
+                            v.swap(1, 2);
+                            p.swap(1, 2);
+                        }
+
+                        let colors = v
+                            .iter()
+                            .map(|v| color_from_egui(v.color))
+                            .collect::<Vec<_>>();
+                        let uvs = v.iter().map(|v| vec2_from_egui(v.uv)).collect::<Vec<_>>();
+
+                        gfx.draw_triangle_image_tinted_three_color(
+                            p.try_into().unwrap(),
+                            colors.try_into().unwrap(),
+                            uvs.try_into().unwrap(),
+                            &handle,
+                        );
                     }
-
-                    let colors = v
-                        .iter()
-                        .map(|v| color_from_egui(v.color))
-                        .collect::<Vec<_>>();
-                    let uvs = v.iter().map(|v| vec2_from_egui(v.uv)).collect::<Vec<_>>();
-
-                    gfx.draw_triangle_image_tinted_three_color(
-                        p.try_into().unwrap(),
-                        colors.try_into().unwrap(),
-                        uvs.try_into().unwrap(),
-                        &handle,
-                    );
                 }
-            } else {
-                todo!();
+                // Speedy2D backend has no PaintCallback integration; skip safely.
+                epaint::Primitive::Callback(_) => {}
             }
         }
-
-        // todo handle platform output
 
         Ok(())
     }
@@ -177,16 +192,30 @@ impl<UserEventType> WindowWrapper<UserEventType> {
             };
 
             let image = RgbaImage::from(image_delta.image);
-            if let Some(_pos) = image_delta.pos {
-                todo!();
+            let smoothing_mode = smoothing_mode_from_egui(image_delta.options);
+            if let Some(pos) = image_delta.pos {
+                if let Some((handle, full_image)) = self.id_and_textures.get_mut(&id) {
+                    if full_image.blit((pos[0], pos[1]), &image) {
+                        *handle = gfx.create_image_from_raw_pixels(
+                            ImageDataType::RGBA,
+                            smoothing_mode,
+                            UVec2::new(full_image.size.0 as u32, full_image.size.1 as u32),
+                            &full_image.pixels,
+                        )?;
+                    }
+                } else {
+                    let handle = gfx.create_image_from_raw_pixels(
+                        ImageDataType::RGBA,
+                        smoothing_mode,
+                        UVec2::new(image.size.0 as u32, image.size.1 as u32),
+                        &image.pixels,
+                    )?;
+                    self.id_and_textures.insert(id, (handle, image));
+                }
             } else {
                 let handle = gfx.create_image_from_raw_pixels(
                     ImageDataType::RGBA,
-                    match image_delta.options {
-                        egui::TextureOptions::NEAREST => ImageSmoothingMode::NearestNeighbor,
-                        egui::TextureOptions::LINEAR => ImageSmoothingMode::Linear,
-                        _ => ImageSmoothingMode::Linear,
-                    },
+                    smoothing_mode,
                     UVec2::new(image.size.0 as u32, image.size.1 as u32),
                     &image.pixels,
                 )?;
@@ -294,6 +323,17 @@ pub trait WindowHandler<UserEventType = ()> {
         &mut self,
         helper: &mut WindowHelper<UserEventType>,
         graphics: &mut Graphics2D,
+        egui_ctx: &egui::Context,
+    ) {
+    }
+
+    /// Invoked after an egui pass to expose platform output such as cursor and clipboard intents.
+    #[allow(unused_variables)]
+    #[inline]
+    fn on_platform_output(
+        &mut self,
+        helper: &mut WindowHelper<UserEventType>,
+        platform_output: &egui::PlatformOutput,
         egui_ctx: &egui::Context,
     ) {
     }
@@ -490,9 +530,11 @@ impl<UserEventType> speedy2d::window::WindowHandler<UserEventType>
         let ctx = &self.egui_ctx;
         // extract events and begin frame
         let raw_input = self.raw_input.take();
-        ctx.begin_frame(raw_input);
+        ctx.begin_pass(raw_input);
         self.handler.on_draw(helper, graphics, ctx);
-        let full_output = ctx.end_frame();
+        let full_output = ctx.end_pass();
+        self.handler
+            .on_platform_output(helper, &full_output.platform_output, &self.egui_ctx);
         // speedy2d doesn't authorize errors. So... panic.
         self.draw(full_output, graphics).unwrap();
     }
@@ -527,7 +569,8 @@ impl<UserEventType> speedy2d::window::WindowHandler<UserEventType>
             MouseButton::Left => Some(egui::PointerButton::Primary),
             MouseButton::Right => Some(egui::PointerButton::Secondary),
             MouseButton::Middle => Some(egui::PointerButton::Middle),
-            MouseButton::Other(btn) => None,
+            MouseButton::Other(_) => None,
+            _ => None,
         } {
             self.raw_input.events.push(egui::Event::PointerButton {
                 pos: pos2_from_speedy2d(self.last_mouse_position),
@@ -552,7 +595,8 @@ impl<UserEventType> speedy2d::window::WindowHandler<UserEventType>
             MouseButton::Left => Some(egui::PointerButton::Primary),
             MouseButton::Right => Some(egui::PointerButton::Secondary),
             MouseButton::Middle => Some(egui::PointerButton::Middle),
-            MouseButton::Other(btn) => None,
+            MouseButton::Other(_) => None,
+            _ => None,
         } {
             self.raw_input.events.push(egui::Event::PointerButton {
                 pos: pos2_from_speedy2d(self.last_mouse_position),
@@ -669,6 +713,14 @@ fn color_from_egui(color: epaint::Color32) -> Color {
     Color::from_int_rgba(color.r(), color.g(), color.b(), color.a())
 }
 
+fn smoothing_mode_from_egui(options: egui::TextureOptions) -> ImageSmoothingMode {
+    match options {
+        egui::TextureOptions::NEAREST => ImageSmoothingMode::NearestNeighbor,
+        egui::TextureOptions::LINEAR => ImageSmoothingMode::Linear,
+        _ => ImageSmoothingMode::Linear,
+    }
+}
+
 fn vec2_from_egui(pos: egui::Pos2) -> speedy2d::dimen::Vec2 {
     speedy2d::dimen::Vec2::new(pos.x, pos.y)
 }
@@ -783,16 +835,6 @@ impl RgbaImage {
                 (size[0], size[1])
             },
             pixels: match image {
-                egui::ImageData::Font(font_image) => {
-                    let mut pixels = vec![];
-                    for color in font_image.srgba_pixels(None) {
-                        pixels.push(color.r());
-                        pixels.push(color.g());
-                        pixels.push(color.b());
-                        pixels.push(color.a());
-                    }
-                    pixels
-                }
                 egui::ImageData::Color(color_image) => {
                     let mut pixels = vec![];
                     for color in &color_image.pixels {
@@ -805,5 +847,28 @@ impl RgbaImage {
                 }
             },
         }
+    }
+
+    fn blit(&mut self, pos: (usize, usize), patch: &RgbaImage) -> bool {
+        let (x, y) = pos;
+        if x + patch.size.0 > self.size.0 || y + patch.size.1 > self.size.1 {
+            return false;
+        }
+
+        let bytes_per_pixel = 4;
+        let patch_row_len = patch.size.0 * bytes_per_pixel;
+        let self_row_len = self.size.0 * bytes_per_pixel;
+
+        for row in 0..patch.size.1 {
+            let src_start = row * patch_row_len;
+            let src_end = src_start + patch_row_len;
+
+            let dst_start = (y + row) * self_row_len + x * bytes_per_pixel;
+            let dst_end = dst_start + patch_row_len;
+
+            self.pixels[dst_start..dst_end].copy_from_slice(&patch.pixels[src_start..src_end]);
+        }
+
+        true
     }
 }
